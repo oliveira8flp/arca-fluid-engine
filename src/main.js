@@ -1,8 +1,15 @@
-import vertexShader from './interactive-fluid-gradient_vertex-shader.glsl?raw';
-import fluidShader from './interactive-fluid-gradient_fluid-shader.glsl?raw';
-import displayShader from './interactive-fluid-gradient_display-shader.glsl?raw';
+// Add this helper function to fetch shaders as text
+async function loadShader(url) {
+  const response = await fetch(url);
+  return await response.text();
+}
 
 window.initArcaFluid = async () => {
+
+  const vertexShader = await loadShader('/interactive-fluid-gradient-vertex-shader.glsl');
+  const fluidShader = await loadShader('/interactive-fluid-gradient_fluid-shader.glsl');
+  const displayShader = await loadShader('/interactive-fluid-gradient_display-shader.glsl');
+  
 
   const THREE = await import('https://esm.sh/three@0.160.0');
   const { WebGLRenderer, WebGLRenderTarget, Scene, OrthographicCamera, ShaderMaterial,
