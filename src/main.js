@@ -560,6 +560,10 @@ void main() {
 
 window.initArcaFluid = async () => {
 
+    const componentEl = document.querySelector('[fc-fluid-gradient="component"]') ||
+    document
+    .body;
+    
   if (componentEl.querySelector('canvas')) {
     console.warn("Arca Fluid already initialized, skipping.");
     return;
@@ -591,9 +595,6 @@ window.initArcaFluid = async () => {
   const getShader = (id) => document.getElementById(id).textContent;
 
   // ============== Root & attributes ==============
-  const componentEl = document.querySelector('[fc-fluid-gradient="component"]') ||
-    document
-    .body;
 
   const guiEnabled = asBoolean(componentEl.getAttribute('fc-fluid-gradient-gui'),
     false);
