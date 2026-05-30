@@ -560,6 +560,11 @@ void main() {
 
 window.initArcaFluid = async () => {
 
+  if (componentEl.querySelector('canvas')) {
+    console.warn("Arca Fluid already initialized, skipping.");
+    return;
+  }
+
   const THREE = await import('https://esm.sh/three@0.160.0');
   const { WebGLRenderer, WebGLRenderTarget, Scene, OrthographicCamera, ShaderMaterial,
     PlaneGeometry, Mesh, TextureLoader, Color, Vector2, Vector3, Vector4, LinearFilter,
