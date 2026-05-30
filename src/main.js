@@ -1,15 +1,564 @@
-// Add this helper function to fetch shaders as text
-async function loadShader(url) {
-  const response = await fetch(url);
-  return await response.text();
+// main.js
+const vertexShaderSource = `
+precision highp float;
+varying vec2 vUv;
+void main() {
+  vUv = uv;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}
+`; // Use backticks (`) for multi-line strings!
+
+// Do the same for your other two shaders
+const fluidShaderSource = `precision highp float;
+
+uniform float iTime;
+uniform sampler2D iPreviousFrame;
+
+uniform vec4 iMouse;
+uniform vec2 uMouseVelocity;
+
+uniform float uFluidDecay;
+uniform float uFlowSpeed;
+
+varying vec2 vUv;
+
+// =========================================================
+// ORGANIC FLOW FIELD
+// =========================================================
+
+vec2 curl(vec2 p, float t) {
+
+    float x =
+        sin(p.y * 2.6 + t * 0.35) +
+        sin(p.y * 5.4 - t * 0.22) * 0.45 +
+        sin(p.y * 10.0 + t * 0.12) * 0.14;
+
+    float y =
+        cos(p.x * 2.8 - t * 0.32) +
+        cos(p.x * 5.8 + t * 0.18) * 0.42 +
+        cos(p.x * 9.5 - t * 0.08) * 0.12;
+
+    return vec2(x, y);
 }
 
-window.initArcaFluid = async () => {
+void main() {
 
-  const vertexShader = await loadShader('/interactive-fluid-gradient-vertex-shader.glsl');
-  const fluidShader = await loadShader('/interactive-fluid-gradient_fluid-shader.glsl');
-  const displayShader = await loadShader('/interactive-fluid-gradient_display-shader.glsl');
-  
+    vec4 me = texture2D(iPreviousFrame, vUv);
+
+    float t = iTime * 0.42 * uFlowSpeed;
+
+    // =========================================================
+    // FLUID ADVECTION
+    // =========================================================
+
+    vec2 c = curl(vUv * 3.4, t);
+
+    vec2 velocity =
+        me.xy * 0.90 +
+        c * 0.040;
+
+    velocity += uMouseVelocity * 0.020;
+
+    vec2 advectUv =
+        vUv -
+        velocity * 0.030;
+
+    advectUv = clamp(advectUv, 0.001, 0.999);
+
+    me = texture2D(iPreviousFrame, advectUv);
+
+    // =========================================================
+    // ENERGY FIELD
+    // =========================================================
+
+    float field = 0.0;
+
+    field += sin(vUv.x * 4.8 + t * 0.45);
+    field += cos(vUv.y * 4.2 - t * 0.35);
+
+    field += sin(
+        (vUv.x * 6.0 + vUv.y * 2.4) +
+        t * 0.22
+    ) * 0.55;
+
+    float breakup = 0.0;
+
+    breakup += sin(vUv.x * 12.0 - t * 0.18);
+    breakup += cos(vUv.y * 11.0 + t * 0.16);
+
+    breakup += sin(
+        (vUv.x + vUv.y) * 15.0 +
+        t * 0.12
+    ) * 0.45;
+
+    breakup *= 0.5;
+
+    field -= breakup * 0.36;
+
+    field += sin(
+        vUv.x * 20.0 +
+        vUv.y * 4.0 +
+        t * 0.28
+    ) * 0.05;
+
+    field *= 0.5;
+
+    // =========================================================
+    // DENSITY
+    // =========================================================
+
+    float density =
+        smoothstep(
+            0.50,
+            0.80,
+            field + 0.08
+        );
+
+    // DARKER / LESS OVEREXPOSED CORE
+    float coreDensity =
+        smoothstep(
+            0.70,
+            0.98,
+            field + 0.08
+        );
+
+    // reduced core accumulation
+    density += coreDensity * 0.14;
+
+    // gentle compression to avoid blown center
+    density = pow(density, 1.08);
+
+    density *= smoothstep(0.0, 5.0, iTime);
+
+    // =========================================================
+    // TEMPORAL PERSISTENCE
+    // =========================================================
+
+    me.w = mix(
+        me.w,
+        density,
+        0.038
+    );
+
+    // =========================================================
+    // MOUSE INTERACTION
+    // =========================================================
+
+    vec2 mousePos = iMouse.xy;
+
+    float mouseField =
+        exp(
+            -distance(vUv, mousePos) * 5.0
+        );
+
+    vec2 mouseDrag =
+        uMouseVelocity *
+        mouseField *
+        0.1;
+
+    vec2 mouseCurl =
+        vec2(
+            -(vUv.y - mousePos.y),
+             (vUv.x - mousePos.x)
+        );
+
+    mouseCurl *= mouseField * 0.014;
+
+    me.xy += mouseDrag;
+    me.xy += mouseCurl;
+
+    me.w += mouseField * 0.018;
+
+    // =========================================================
+    // VORTICITY
+    // =========================================================
+
+    vec2 force =
+        vec2(c.y, -c.x);
+
+    me.xy = mix(
+        me.xy,
+        force * 0.008,
+        0.055
+    );
+
+    // =========================================================
+    // DIRECTIONAL DRIFT
+    // =========================================================
+
+    me.xy += vec2(
+        0.0008,
+        -0.00018
+    );
+
+    // =========================================================
+    // DECAY
+    // =========================================================
+
+    me.xy *= 0.988;
+
+    me.w *= 0.986;
+
+    // preserve black background
+    me.w = max(me.w - 0.0016, 0.0);
+
+    gl_FragColor = me;
+}`;
+
+
+const displayShaderSource = `precision highp float;
+
+uniform sampler2D iFluid;
+uniform sampler2D uRibMap;
+
+uniform vec3 uColor1;
+uniform vec3 uColor2;
+uniform vec3 uColor3;
+uniform vec3 uColor4;
+
+uniform float uColorIntensity;
+uniform float iTime;
+
+varying vec2 vUv;
+
+void main() {
+
+    // =========================================================
+    // UV SPACE
+    // =========================================================
+
+    vec2 uv = vUv;
+
+    // subtle optical instability
+    uv.x +=
+        sin(uv.y * 4.0 + iTime * 0.08) * 0.003;
+
+    uv.y +=
+        cos(uv.x * 3.0 - iTime * 0.06) * 0.002;
+
+    // overscan crop
+    vec2 croppedUv =
+        uv * 0.84 + 0.08;
+
+    // =========================================================
+    // FLUID SAMPLING
+    // =========================================================
+
+    float off = 0.0024;
+
+    float d =
+        texture2D(iFluid, croppedUv).w;
+
+    float dx =
+        texture2D(
+            iFluid,
+            croppedUv + vec2(off, 0.0)
+        ).w - d;
+
+    float dy =
+        texture2D(
+            iFluid,
+            croppedUv + vec2(0.0, off)
+        ).w - d;
+
+    // thicker liquid normals
+    vec3 fluidNormal =
+        normalize(vec3(-dx, -dy, 0.18));
+
+    // =========================================================
+    // RIBBED GLASS
+    // =========================================================
+
+    vec2 ribUv = uv;
+
+    ribUv.x +=
+        sin(uv.y * 6.0 + iTime * 0.10) * 0.003;
+
+    vec4 ribData =
+        texture2D(uRibMap, ribUv);
+
+    vec3 ribNormal =
+        ribData.rgb * 2.0 - 1.0;
+
+    // controlled rib distortion
+    vec3 finalNormal =
+        normalize(
+            fluidNormal +
+            ribNormal * 0.055
+        );
+
+    // =========================================================
+    // REFRACTION
+    // =========================================================
+
+    vec2 refractUv =
+        croppedUv +
+        finalNormal.xy * 0.012;
+
+    refractUv =
+        clamp(refractUv, 0.001, 0.999);
+
+    float fluidDensity =
+        texture2D(iFluid, refractUv).w;
+
+    // =========================================================
+    // TRUE BLACK BACKGROUND
+    // =========================================================
+
+    float presence =
+        smoothstep(
+            0.02,
+            0.16,
+            fluidDensity
+        );
+
+    // =========================================================
+    // DIRECTIONAL LIGHTING
+    // =========================================================
+
+    vec3 lightDir =
+        normalize(vec3(0.48, 0.24, 1.0));
+
+    float light =
+        max(dot(finalNormal, lightDir), 0.0);
+
+    float directional =
+        smoothstep(
+            0.05,
+            0.95,
+            light
+        );
+
+    // =========================================================
+    // COLOR RAMP
+    // =========================================================
+
+    vec3 ramp = mix(
+        uColor1,
+        uColor2,
+        smoothstep(
+            0.08,
+            0.32,
+            fluidDensity
+        )
+    );
+
+    ramp = mix(
+        ramp,
+        uColor3,
+        smoothstep(
+            0.28,
+            0.62,
+            fluidDensity
+        )
+    );
+
+    ramp = mix(
+        ramp,
+        uColor4,
+        smoothstep(
+            0.70,
+            0.96,
+            fluidDensity
+        )
+    );
+
+    // =========================================================
+    // SHADOW-SIDE ABSORPTION
+    // =========================================================
+
+    ramp *= mix(
+        0.22,
+        1.0,
+        directional
+    );
+
+    // warm internal darkness
+    ramp +=
+        vec3(0.015, 0.003, 0.001) *
+        (1.0 - directional) *
+        presence;
+
+    // =========================================================
+    // LARGE-SCALE HALO
+    // =========================================================
+
+    float halo =
+        smoothstep(
+            0.16,
+            0.58,
+            fluidDensity
+        );
+
+    halo *=
+        1.0 -
+        smoothstep(
+            0.72,
+            1.0,
+            fluidDensity
+        );
+
+    // broad gaussian softness
+    halo *= 0.55;
+
+    vec3 haloColor =
+        vec3(1.0, 0.34, 0.06) *
+        halo;
+
+    // =========================================================
+    // CORE ENERGY
+    // =========================================================
+
+    float core =
+        smoothstep(
+            0.76,
+            0.98,
+            fluidDensity
+        );
+
+    // near-white warm center
+    vec3 coreColor =
+        vec3(1.15, 0.52, 0.12) *
+        core *
+        1.4;
+
+    // =========================================================
+    // INTERNAL STRUCTURE
+    // =========================================================
+
+    float vein =
+        sin(
+            refractUv.x * 22.0 +
+            fluidDensity * 11.0 +
+            iTime * 0.15
+        );
+
+    vein =
+        smoothstep(
+            0.55,
+            1.0,
+            vein
+        );
+
+    vec3 veinColor =
+        vec3(1.0, 0.42, 0.08) *
+        vein *
+        fluidDensity *
+        0.05;
+
+    // =========================================================
+    // GLASS REFLECTION
+    // =========================================================
+
+    float ribSpec =
+        smoothstep(
+            0.86,
+            0.99,
+            max(
+                dot(
+                    finalNormal,
+                    normalize(vec3(0.42, 0.32, 1.0))
+                ),
+                0.0
+            )
+        );
+
+    vec3 ribColor =
+        vec3(1.0, 0.45, 0.10) *
+        ribSpec *
+        ribData.r *
+        0.22;
+
+    // =========================================================
+    // FRESNEL EDGE
+    // =========================================================
+
+    float fresnel =
+        pow(
+            1.0 -
+            max(
+                dot(
+                    finalNormal,
+                    vec3(0.0, 0.0, 1.0)
+                ),
+                0.0
+            ),
+            2.4
+        );
+
+    vec3 fresnelColor =
+        vec3(1.0, 0.28, 0.05) *
+        fresnel *
+        0.05;
+
+    // =========================================================
+    // FINAL COMPOSITION
+    // =========================================================
+
+    vec3 col = vec3(0.0);
+
+    // preserve black background
+    col += ramp * presence;
+
+    col += haloColor * presence;
+    col += coreColor * presence;
+    col += veinColor * presence;
+
+    col += ribColor * presence;
+    col += fresnelColor * presence;
+
+    // =========================================================
+    // LOCAL CONTRAST
+    // =========================================================
+
+    col *= mix(
+        0.75,
+        1.3,
+        smoothstep(
+            0.28,
+            0.90,
+            fluidDensity
+        )
+    );
+
+    // =========================================================
+    // CINEMATIC CURVE
+    // =========================================================
+
+    col = pow(
+        col,
+        vec3(0.96)
+    );
+
+    col *= uColorIntensity;
+
+    // =========================================================
+    // FILMIC COMPRESSION
+    // =========================================================
+
+    col =
+        col /
+        (1.0 + col * 0.18);
+
+    // preserve saturation
+    float luminance =
+        dot(
+            col,
+            vec3(0.2126, 0.7152, 0.0722)
+        );
+
+    col = mix(
+        vec3(luminance),
+        col,
+        1.12
+    );
+
+    gl_FragColor =
+        vec4(col, 1.0);
+}`;
+
+
+window.initArcaFluid = async () => {
 
   const THREE = await import('https://esm.sh/three@0.160.0');
   const { WebGLRenderer, WebGLRenderTarget, Scene, OrthographicCamera, ShaderMaterial,
@@ -161,8 +710,8 @@ window.initArcaFluid = async () => {
       uSoftReset: { value: 0.0 },
       uFlowSpeed: { value: config.flowSpeed },
     },
-    vertexShader,
-    fragmentShader: fluidShader,
+    vertexShader: vertexShaderSource,
+    fragmentShader: fluidShaderSource,
   });
 
   const ribTexture = new TextureLoader().load(
@@ -189,8 +738,8 @@ window.initArcaFluid = async () => {
       uScreenX: { value: window.innerWidth },
       uRibMap: { value: ribTexture }
     },
-    vertexShader,
-    fragmentShader: displayShader,
+    vertexShader: vertexShaderSource,
+    fragmentShader: displayShaderSource,
     toneMapped: true,
   });
 
