@@ -559,6 +559,11 @@ void main() {
 
 
 window.initArcaFluid = async () => {
+    if (window.isArcaInitialized) {
+    console.warn("Arca Fluid already initialized, skipping.");
+    return;
+  }
+  window.isArcaInitialized = true;
 
     const componentEl = document.querySelector('[fc-fluid-gradient="component"]') ||
     document
