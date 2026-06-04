@@ -487,15 +487,18 @@ void main() {
     // FINAL COMPOSITION
     // =========================================================
 
-    vec3 col = vec3(0.015);;
+    // 1. Define your CSS background color here (0.0 to 1.0 range)
+    vec3 pageColor = vec3(0.047, 0.047, 0.047); 
 
-    // preserve black background
+    // 2. Start with the page color as the base
+    vec3 col = pageColor; 
+
+    // 3. Add the fluid energy on top of that base
+    // We still use 'presence' to fade the fluid, but now it fades into 'pageColor'
     col += ramp * presence;
-
     col += haloColor * presence;
     col += coreColor * presence;
     col += veinColor * presence;
-
     col += ribColor * presence;
     col += fresnelColor * presence;
 
