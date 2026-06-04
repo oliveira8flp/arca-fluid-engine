@@ -548,8 +548,13 @@ void main() {
         col,
         1.12
     );
-    
+
     col = pow(col, vec3(1.0 / 2.2));
+
+    // 2. Bottom fade to ensure seamless intersection
+    // Fades the brightness out to 0 in the last 15% of the height
+    float bottomFade = smoothstep(1.0, 0.85, vUv.y); 
+    col *= bottomFade;
 
     gl_FragColor =
         vec4(col, 1.0);

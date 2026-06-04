@@ -1,19 +1,22 @@
 .gradient-canvas {
-    /* Create a gradient that goes from solid opacity at the top to transparent at the bottom */
-    mask-image: linear-gradient(to bottom, 
-        rgba(0,0,0,1) 70%, 
-        rgba(0,0,0,0) 100%
-    );
-    /* Standardize for cross-browser support */
-    -webkit-mask-image: linear-gradient(to bottom, 
-        rgba(0,0,0,1) 70%, 
-        rgba(0,0,0,0) 100%
-    );
+    /* Position fixed or absolute depending on your layout */
+    position: absolute; 
     top: 0;
     left: 0;
     width: 100%;
-    /* Extend the height by 100px so the fade doesn't hit the bottom edge */
+    /* Extend height to allow the dissolve to bleed off-screen */
     height: calc(100% + 100px); 
+    
+    /* Ensure the canvas doesn't add its own 'inline' margin */
+    display: block; 
+    
+    /* The mask-image creates the invisible fade-out */
+    mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 70%, rgba(0,0,0,0) 100%);
+    -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 70%, rgba(0,0,0,0) 100%);
+    
     pointer-events: none;
     z-index: 0;
+    
+    /* Prevents the browser from accidentally anti-aliasing the edge */
+    will-change: transform;
 }
