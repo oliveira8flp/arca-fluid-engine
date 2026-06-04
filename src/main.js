@@ -71,18 +71,37 @@ void main() {
     // ENERGY FIELD
     // =========================================================
 
-    // Simplified Energy Field for Straight Stripes
     float field = 0.0;
-    // Use only vUv.x for verticality; remove vUv.y interference
-    field += sin(vUv.x * 12.0 + t * 0.2); 
-    field += sin(vUv.x * 24.0 - t * 0.1) * 0.5;
 
-    // Remove the diagonal 'breakup' logic that creates tilts
+    field += sin(vUv.x * 4.8 + t * 0.45);
+    field += cos(vUv.y * 4.2 - t * 0.35);
+
+    field += sin(
+        (vUv.x * 6.0 + vUv.y * 2.4) +
+        t * 0.22
+    ) * 0.55;
+
     float breakup = 0.0;
-    breakup += sin(vUv.x * 30.0 + t * 0.4);
 
-    field -= breakup * 0.15;
-    field *= 0.6;
+    breakup += sin(vUv.x * 12.0 - t * 0.18);
+    breakup += cos(vUv.y * 11.0 + t * 0.16);
+
+    breakup += sin(
+        (vUv.x + vUv.y) * 15.0 +
+        t * 0.12
+    ) * 0.45;
+
+    breakup *= 0.5;
+
+    field -= breakup * 0.36;
+
+    field += sin(
+        vUv.x * 20.0 +
+        vUv.y * 4.0 +
+        t * 0.28
+    ) * 0.05;
+
+    field *= 0.5;
 
     // =========================================================
     // DENSITY
@@ -210,13 +229,6 @@ void main() {
 
     vec2 uv = vUv;
 
-    // subtle optical instability
-    uv.x +=
-        sin(uv.y * 4.0 + iTime * 0.08) * 0.003;
-
-    uv.y +=
-        cos(uv.x * 3.0 - iTime * 0.06) * 0.002;
-
     // overscan crop
     vec2 croppedUv =
         uv * 0.84 + 0.08;
@@ -252,8 +264,7 @@ void main() {
 
     vec2 ribUv = uv;
 
-    ribUv.x +=
-        sin(uv.y * 6.0 + iTime * 0.10) * 0.003;
+    ribUv.x += 0.0;
 
     vec4 ribData =
         texture2D(uRibMap, ribUv);
