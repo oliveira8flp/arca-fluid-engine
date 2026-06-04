@@ -488,20 +488,24 @@ void main() {
     // FINAL COMPOSITION
     // =========================================================
 
-    // 1. Define your CSS background color here (0.0 to 1.0 range)
-    vec3 pageColor = vec3(0.047, 0.047, 0.047); 
+    // Convert #151515 to 0-1 range (15/255 ≈ 0.0588)
+    vec3 baseColor = vec3(0.0588, 0.0588, 0.0588);
 
-    // 2. Start with the page color as the base
-    vec3 col = pageColor; 
+    // 1. Start with your specific background color instead of vec3(0.0)
+    vec3 col = baseColor; 
 
-    // 3. Add the fluid energy on top of that base
-    // We still use 'presence' to fade the fluid, but now it fades into 'pageColor'
+    // 2. Add the fluid energy on top using additive blending
     col += ramp * presence;
     col += haloColor * presence;
     col += coreColor * presence;
     col += veinColor * presence;
     col += ribColor * presence;
     col += fresnelColor * presence;
+
+    // 3. Optional: Subtle fade-out at the very bottom 
+    // This creates that "dissolve" effect we talked about earlier
+    float fade = smoothstep(1.0, 0.8, vUv.y);
+    col = mix(baseColor, col, fade);
 
     // =========================================================
     // LOCAL CONTRAST
