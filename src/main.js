@@ -548,6 +548,8 @@ void main() {
         col,
         1.12
     );
+    
+    col = pow(col, vec3(1.0 / 2.2));
 
     gl_FragColor =
         vec4(col, 1.0);
