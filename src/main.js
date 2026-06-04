@@ -71,37 +71,18 @@ void main() {
     // ENERGY FIELD
     // =========================================================
 
+    // Simplified Energy Field for Straight Stripes
     float field = 0.0;
+    // Use only vUv.x for verticality; remove vUv.y interference
+    field += sin(vUv.x * 12.0 + t * 0.2); 
+    field += sin(vUv.x * 24.0 - t * 0.1) * 0.5;
 
-    field += sin(vUv.x * 4.8 + t * 0.45);
-    field += cos(vUv.y * 4.2 - t * 0.35);
-
-    field += sin(
-        (vUv.x * 6.0 + vUv.y * 2.4) +
-        t * 0.22
-    ) * 0.55;
-
+    // Remove the diagonal 'breakup' logic that creates tilts
     float breakup = 0.0;
+    breakup += sin(vUv.x * 30.0 + t * 0.4);
 
-    breakup += sin(vUv.x * 12.0 - t * 0.18);
-    breakup += cos(vUv.y * 11.0 + t * 0.16);
-
-    breakup += sin(
-        (vUv.x + vUv.y) * 15.0 +
-        t * 0.12
-    ) * 0.45;
-
-    breakup *= 0.5;
-
-    field -= breakup * 0.36;
-
-    field += sin(
-        vUv.x * 20.0 +
-        vUv.y * 4.0 +
-        t * 0.28
-    ) * 0.05;
-
-    field *= 0.5;
+    field -= breakup * 0.15;
+    field *= 0.6;
 
     // =========================================================
     // DENSITY
@@ -495,7 +476,7 @@ void main() {
     // FINAL COMPOSITION
     // =========================================================
 
-    vec3 col = vec3(0.0);
+    vec3 col = vec3(0.015);;
 
     // preserve black background
     col += ramp * presence;
@@ -512,13 +493,9 @@ void main() {
     // =========================================================
 
     col *= mix(
-        0.75,
-        1.3,
-        smoothstep(
-            0.28,
-            0.90,
-            fluidDensity
-        )
+        0.85, // Lifted from 0.75 to be less aggressive in shadows
+        1.2,  // Reduced from 1.3 to prevent over-blown highlights
+        smoothstep(0.28, 0.90, fluidDensity)
     );
 
     // =========================================================
