@@ -155,7 +155,7 @@ void main() {
     vec2 mouseDrag =
         uMouseVelocity *
         mouseField *
-        0.1;
+        0.15;
 
     vec2 mouseCurl =
         vec2(
@@ -163,7 +163,7 @@ void main() {
              (vUv.x - mousePos.x)
         );
 
-    mouseCurl *= mouseField * 0.014;
+    mouseCurl *= mouseField * 0.020;
 
     me.xy += mouseDrag;
     me.xy += mouseCurl;
